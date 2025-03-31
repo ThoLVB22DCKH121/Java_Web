@@ -1,0 +1,63 @@
+.search-box {
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: 10px;
+    padding: 15px;
+    color: white;
+    margin-bottom: 20vw;
+}
+
+.search-box input, .search-box select {
+    background: transparent;
+    border: 1px solid white;
+    color: white;
+}
+
+.search-box input::placeholder, .search-box select {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+#propertySlider {
+    width: 100vw;
+    height: 35vw;
+    overflow: hidden;
+}
+
+#propertySlider .carousel-inner {
+    height: 100%;
+}
+
+#propertySlider .carousel-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.search-box button {
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 5px;
+    font-weight: bold;
+    transition: all 0.3s ease-in-out;
+}
+
+.search-box button:hover {
+    background: rgba(255, 255, 255, 0.4);
+    border: 1px solid white;
+}
+
+.card-img-top {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+}
+
+.card-title{
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}

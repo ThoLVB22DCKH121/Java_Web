@@ -1,0 +1,19 @@
+<div th:fragment="chat-frame">
+    <button class="chat-button" onclick="toggleChat()"><i class="fa-brands fa-rocketchat" style="color: #FFD43B;"></i></button>
+    <div class="chat-frame" id="chat-admin" style="display: none">
+        <div class="chat-header">
+            <h5>Admin</h5>
+        </div>
+        <div class="message-list" id="messages-admin"></div>
+        <div class="input-group">
+            <input class="form-control" id="messageInput-admin" type="text" placeholder="Type a message...">
+            <button type="button" class="btn btn-warning" onclick="sendMessageToAdmin(event)">Send</button>
+        </div>
+    </div>
+</div>
+
+<script th:inline="javascript">
+    var username = /*[[${username}]]*/ "guest";
+    var socket = new SockJS('http://localhost:8081/ws');
+    var stompClient = Stomp.over(socket);
+</script>

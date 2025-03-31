@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản lý bất động sản</title>
+    <link rel="stylesheet" th:href="@{/css/admin.css}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+<div class="container-fluid">
+    <div th:replace="fragments/header_admin :: div"></div>
+
+    <div class="row" style="margin-top: 60px">
+        <div class="col-md-2">
+            <div th:replace="fragments/sidebar_admin :: div"></div>
+        </div>
+
+        <div class="col-md-10 content">
+            <h3>Quản lý tin tức</h3>
+
+            <!--Thêm tin tức -->
+            <button class="btn btn-success mb-3" onclick="toggleNewsForm()">Thêm tin tức</button>
+
+            <div th:if="${success}" class="alert alert-success">
+                <span th:text="${success}"></span>
+            </div>
+
+            <div th:if="${error}" class="alert alert-danger">
+                <span th:text="${error}"></span>
+            </div>
+
+            <div id="newsFormContainer" style="display: none;">
+                <form id="newsForm" th:object="${newsEntity}" method="post">
+                    <input type="hidden" th:name="${_csrf.parameterName}"
+                           th:value="${_csrf.token}"/>
+                    <div class="row mb-3">
+                        <label class="col-sm-4 col-form-label">Tiêu đề</label>
+                        <div class="col-sm-8">
+                            <input class="form-control" th:field="${newsEntity.title}">
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <label class="col-sm-4 col-form-label">Nội dung</label>
+                        <div class="col-sm-8">
+                            <input class="form-control" th:field="${newsEntity.content}">
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <label class="col-sm-4 col-form-label">URL ảnh</label>
+                        <div class="col-sm-8">
+                            <input class="form-control" th:field="${newsEntity.image}">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Lưu tin tức</button>
+                </form>
+            </div>
+            <!--Danh sách tin tức-->
+            <table class="table">
+                <thead>
+                <tr>
+                    <th>Ảnh</th>
+                    <th>Tiêu đề</th>
+                    <th>Ngày đăng</th>
+                    <th>Hành động</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="news : ${newsList}">
+                    <td><img th:src="${news.image}" alt="Ảnh tin tức" width="100"></td>
+                    <td th:text="${news.title}"></td>
+                    <td th:text="${news.date}"></td>
+                    <td>
+                        <!-- Modal sửa tin tức -->
+                        <div class="modal fade" id="editNewsModal" tabindex="-1" aria-labelledby="modalTitle" aria-hidden="true">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="modalTitle">Chỉnh sửa Tin tức</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <form id="editNewsForm" method="post">
+                                            <input type="hidden" name="_method" value="PUT">
+                                            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                                            <input type="hidden" id="editId" name="id">
+                                            <div class="mb-3">
+                                                <label for="editTitle" class="form-label">Tiêu đề</label>
+                                                <input type="text" class="form-control" id="editTitle" name="title" required>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <label for="editContent" class="form-label">Nội dung</label>
+                                                <textarea class="form-control" id="editContent" name="content" required></textarea>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <label for="editImage" class="form-label">URL ảnh</label>
+                                                <input type="text" class="form-control" id="editImage" name="image">
+                                            </div>
+
+                                            <button type="submit" class="btn btn-success">Cập nhật</button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!--Nút sửa tin tức-->
+                        <button class="btn btn-warning btn-sm btn-edit"
+                                data-bs-toggle="modal"
+                                data-bs-target="#editNewsModal"
+                                th:data-id="${news.id}"
+                                th:data-title="${news.title}"
+                                th:data-content="${news.content}"
+                                th:data-image="${news.image}">
+                            Sửa
+                        </button>
+                        <!--Xóa tin tức-->
+                        <form th:action="@{/templates/admin/news/{id}(id=${news.id})}" method="post" style="display:inline;">
+                            <input type="hidden" name="_method" value="DELETE"/>
+                            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                            <button class="btn btn-danger btn-sm" type="submit">Xóa</button>
+                        </form>
+
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div th:replace="fragments/footer_admin :: footer"></div>
+</div>
+<script th:src="@{/js/admin_news.js}"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.min.js"></script>
+</body>
+</html>

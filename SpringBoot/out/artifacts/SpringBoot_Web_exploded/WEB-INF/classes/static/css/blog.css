@@ -1,0 +1,36 @@
+body {
+    background-color: #f8f9fa;
+}
+.news-card {
+    display: flex;
+    align-items: center;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    border-radius: 12px;
+    overflow: hidden;
+    background: white;
+}
+
+/* Ảnh bài viết */
+.news-img {
+    width: 250px;
+    height: 150px;
+    object-fit: cover;
+    border-top-left-radius: 12px;
+    border-bottom-left-radius: 12px;
+    flex-shrink: 0;
+}
+
+/* Phần nội dung */
+.card-body {
+    padding: 15px;
+    flex-grow: 1;
+    min-width: 0;
+}
+
+/* Giới hạn nội dung văn bản */
+.card-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
