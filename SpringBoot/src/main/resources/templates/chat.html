@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="_csrf" th:content="${_csrf.token}"/>
+    <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .conversation-list li {
+            transition: background-color 0.2s ease;
+            cursor: pointer;
+        }
+        .conversation-list li:hover {
+            background-color: #f1f5f9;
+        }
+        .conversation-list .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #64748b;
+            font-weight: 600;
+        }
+        .chat-messages {
+            background-color: #f8fafc;
+        }
+        .chat-messages .message {
+            transition: transform 0.2s ease;
+        }
+        .chat-messages .message:hover {
+            transform: translateY(-2px);
+        }
+        .chat-messages .message-time {
+            font-size: 0.75rem;
+            color: #6b7280;
+            margin-top: 4px;
+        }
+        .chat-input input {
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .chat-input input:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+            outline: none;
+        }
+        .chat-input button {
+            transition: background-color 0.2s ease, transform 0.2s ease;
+        }
+        .chat-input button:hover {
+            background-color: #2563eb;
+            transform: translateY(-1px);
+        }
+        .property-image {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .property-image:hover {
+            transform: scale(1.02);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+        .property-detail {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .property-detail i {
+            color: #3b82f6;
+        }
+        .property-action {
+            transition: background-color 0.2s ease, transform 0.2s ease;
+        }
+        .property-action:hover {
+            background-color: #2563eb;
+            transform: translateY(-1px);
+        }
+        .back-button {
+            transition: color 0.2s ease;
+        }
+        .back-button:hover {
+            color: #1d4ed8;
+        }
+        .file-upload-label {
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+        .file-upload-label:hover {
+            color: #3b82f6;
+        }
+        .error-message {
+            color: #dc2626;
+            font-size: 0.875rem;
+            margin-top: 4px;
+        }
+        .file-message {
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            background-color: #ffffff;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .file-message:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .file-icon {
+            width: 24px;
+            height: 24px;
+            margin-right: 0.5rem;
+        }
+        .lightbox {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .lightbox img {
+            max-width: 90%;
+            max-height: 90%;
+            border: 5px solid #ffffff;
+            border-radius: 0.5rem;
+        }
+        .lightbox .close {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            color: #ffffff;
+            font-size: 2rem;
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+        .lightbox .close:hover {
+            color: #ff5555;
+        }
+        .search-input {
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .search-input:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+            outline: none;
+        }
+        @media (max-width: 768px) {
+            .conversation-list, .property-info {
+                display: none;
+            }
+            .chat-container {
+                width: 100%;
+            }
+            .chat-messages {
+                padding: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="flex flex-1 overflow-hidden flex-col md:flex-row h-screen">
+    <div class="conversation-list w-full md:w-1/6 bg-white border-r border-gray-200 overflow-y-auto">
+        <div class="p-4 border-b bg-gray-50">
+            <h2 class="text-lg font-semibold text-gray-800"><i class="fas fa-comments mr-2 text-blue-500"></i>Cuộc hội thoại</h2>
+            <div class="mt-2">
+                <input id="searchInput" type="text" class="search-input w-full p-2 border border-gray-300 rounded-lg bg-white text-gray-800 placeholder-gray-400" placeholder="Tìm kiếm cuộc hội thoại...">
+            </div>
+        </div>
+        <ul id="conversationList" class="divide-y divide-gray-200">
+            <!-- Conversations will be loaded dynamically -->
+        </ul>
+    </div>
+    <div class="chat-container w-full md:w-3/6 bg-white border-r border-gray-200 flex flex-col">
+        <div class="p-4 border-b bg-gray-50">
+            <h2 id="receiverName" class="text-lg font-semibold text-gray-800"><i class="fas fa-user-circle mr-2 text-blue-500"></i></h2>
+        </div>
+        <div id="chatMessages" class="chat-messages flex-1 overflow-y-auto p-4 space-y-4">
+            <!-- Messages will be loaded dynamically -->
+        </div>
+        <div id="chatInputArea" class="p-4 bg-gray-50 border-t hidden">
+            <div class="chat-input flex gap-2">
+                <label for="fileInput" class="file-upload-label flex items-center text-blue-500 hover:text-blue-600">
+                    <i class="fas fa-paperclip mr-2"></i>
+                </label>
+                <input id="fileInput" type="file" class="hidden" accept="*/*" onchange="uploadFile()">
+                <input id="chatInput" type="text" class="flex-1 p-2 border border-gray-300 rounded-lg bg-white text-gray-800 placeholder-gray-400" placeholder="Nhập tin nhắn...">
+                <button onclick="sendMessage()" class="bg-blue-500 text-white px-4 py-2 rounded-lg flex items-center gap-2">
+                    <i class="fas fa-paper-plane"></i> Gửi
+                </button>
+            </div>
+            <div id="errorMessage" class="error-message hidden"></div>
+        </div>
+    </div>
+    <div class="property-info w-full md:w-2/6 bg-white overflow-y-auto">
+        <div class="p-4 border-b bg-gray-50 flex items-center justify-between">
+            <h2 class="text-lg font-semibold text-gray-800"><i class="fas fa-home mr-2 text-blue-500"></i>Thông tin bất động sản</h2>
+            <button onclick="window.history.back()" class="back-button flex items-center text-sm text-blue-600 hover:underline focus:outline-none">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+                Quay lại
+            </button>
+        </div>
+        <div id="propertyInfo" class="p-4">
+            <!-- Property info will be loaded dynamically -->
+        </div>
+    </div>
+    <div id="lightbox" class="lightbox">
+        <span class="close">×</span>
+        <img id="lightbox-image" src="" alt="Full-screen image">
+    </div>
+    <script th:inline="javascript">
+        let stompClient = null;
+        let currentSubscription = null;
+        let conversationsSubscription = null;
+        let senderName = /*[[${senderName}]]*/ 'Unknown User';
+        let currentConversationId = null;
+        let currentPage = 0; // Theo dõi trang hiện tại cho danh sách cuộc hội thoại
+        let currentMessagePage = 0; // Theo dõi trang hiện tại cho tin nhắn
+
+        // Hàm debounce để giới hạn tần suất gọi
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // Hàm throttle để giới hạn tần suất sự kiện
+        function throttle(func, limit) {
+            let inThrottle;
+            return function(...args) {
+                if (!inThrottle) {
+                    func(...args);
+                    inThrottle = true;
+                    setTimeout(() => inThrottle = false, limit);
+                }
+            };
+        }
+
+        function loadConversations(page = 0, size = 10, keyword = '') {
+            const url = keyword ? `/conversations?page=${page}&size=${size}&keyword=${encodeURIComponent(keyword)}` : `/conversations?page=${page}&size=${size}`;
+            fetch(url, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    const convList = document.getElementById('conversationList');
+                    if (page === 0) convList.innerHTML = ''; // Xóa danh sách nếu tải trang đầu
+                    if (data.length === 0 && page === 0) {
+                        convList.innerHTML = '<li class="p-4 text-gray-500">Không tìm thấy cuộc hội thoại.</li>';
+                    } else {
+                        data.forEach(conv => {
+                            const li = document.createElement('li');
+                            li.className = 'p-4 hover:bg-gray-100';
+                            li.dataset.id = conv.id;
+                            li.onclick = () => loadConversation(conv.id, conv.otherUserName);
+                            li.innerHTML = `
+                                <div class="flex items-start gap-3">
+                                    <div class="avatar">
+                                        <span>${conv.otherUserName.substring(0, 1)}</span>
+                                    </div>
+                                    <div class="flex-1">
+                                        <h3 class="font-medium text-gray-800">${conv.otherUserName} - ${conv.propertyName}</h3>
+                                        <p class="text-sm text-gray-600 truncate">${conv.lastMessage || 'Chưa có tin nhắn'}</p>
+                                        <p class="text-xs text-gray-400 mt-1">${conv.lastMessageTime || ''}</p>
+                                    </div>
+                                </div>`;
+                            convList.appendChild(li);
+                        });
+                    }
+                })
+                .catch(error => console.error('Error loading conversations:', error));
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadConversations();
+            connectToConversations();
+            // Thêm sự kiện tìm kiếm
+            const searchInput = document.getElementById('searchInput');
+            searchInput.addEventListener('input', debounce(() => {
+                currentPage = 0; // Reset trang khi tìm kiếm
+                loadConversations(currentPage, 10, searchInput.value.trim());
+            }, 500));
+            // Thêm sự kiện cuộn để tải thêm cuộc hội thoại
+            const conversationList = document.getElementById('conversationList');
+            conversationList.addEventListener('scroll', throttle(() => {
+                if (conversationList.scrollTop + conversationList.clientHeight >= conversationList.scrollHeight) {
+                    currentPage++;
+                    loadConversations(currentPage, 10, searchInput.value.trim());
+                }
+            }, 500));
+            // Thêm sự kiện cuộn để tải thêm tin nhắn
+            const chatMessages = document.getElementById('chatMessages');
+            chatMessages.addEventListener('scroll', () => {
+                if (chatMessages.scrollTop === 0) {
+                    currentMessagePage++;
+                    loadConversation(currentConversationId, document.getElementById('receiverName').innerText, currentMessagePage);
+                }
+            });
+        });
+
+        function loadConversation(convId, receiverName, page = 0, size = 20) {
+            fetch(`/conversations/${convId}?page=${page}&size=${size}`, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    updateChatUI(data, page);
+                    updatePropertyUI(data.property);
+                    document.getElementById('receiverName').innerText = receiverName;
+                    document.getElementById('chatInputArea').classList.remove('hidden');
+                    currentConversationId = convId;
+                    connectToChat(convId);
+                })
+                .catch(error => console.error('Error loading conversation:', error));
+        }
+
+        function updateChatUI(data, page) {
+            const chatMessages = document.getElementById('chatMessages');
+            if (page === 0) chatMessages.innerHTML = ''; // Xóa tin nhắn nếu tải trang đầu
+            data.messages.forEach(msg => {
+                const msgDiv = document.createElement('div');
+                msgDiv.className = `message p-3 rounded-lg max-w-md shadow-sm ${msg.sender === senderName ? 'bg-blue-100 ml-auto' : 'bg-gray-200'}`;
+                let contentHtml = `<span class="text-gray-800">${msg.content || ''}</span>`;
+                if (msg.fileUrl) {
+                    if (msg.type === 'IMAGE') {
+                        contentHtml += `<div class="mt-2"><img src="${msg.fileUrl}" alt="Uploaded image" class="max-w-full rounded-lg cursor-pointer file-message" onclick="openLightbox('${msg.fileUrl}')"></div>`;
+                    } else {
+                        contentHtml += `
+                            <div class="mt-2 file-message flex items-center">
+                                <i class="fas fa-file-alt file-icon text-gray-500"></i>
+                                <a href="${msg.fileUrl}" target="_blank" class="text-blue-500 hover:underline">${msg.fileUrl.split('/').pop()}</a>
+                            </div>`;
+                    }
+                }
+                msgDiv.innerHTML = `
+                    <div class="message-content">
+                        ${contentHtml}
+                        <div class="message-time">${msg.sendAt}</div>
+                    </div>`;
+                chatMessages.insertBefore(msgDiv, chatMessages.firstChild); // Thêm tin nhắn mới vào đầu
+            });
+            if (page === 0) chatMessages.scrollTop = chatMessages.scrollHeight; // Cuộn xuống dưới cho trang đầu
+        }
+
+        function updatePropertyUI(property) {
+            const propertyInfo = document.getElementById('propertyInfo');
+            propertyInfo.innerHTML = `
+                <img src="${property.imageList && property.imageList.length > 0 ? property.imageList[0] : '/images/fallback.jpg'}" alt="Ảnh bất động sản" class="property-image rounded-lg shadow-md mb-4 w-full object-cover h-48">
+                <div class="property-detail">
+                    <i class="fas fa-map-marker-alt"></i>
+                    <p class="text-gray-600">${property.address || 'Không có thông tin'}</p>
+                </div>
+                <div class="property-detail">
+                    <i class="fas fa-ruler-combined"></i>
+                    <p class="text-gray-600">${property.area ? property.area + ' m²' : 'Không có thông tin'}</p>
+                </div>
+                <div class="property-detail">
+                    <i class="fas fa-dollar-sign"></i>
+                    <p class="text-pink-600 font-semibold">${property.price ? property.price + ' triệu/m²' : 'Không có thông tin'}</p>
+                </div>
+                <div class="property-detail">
+                    <i class="fas fa-file-alt"></i>
+                    <p class="text-gray-600" style="white-space: pre-line; font-size: 1rem; line-height: 1.6;">${property.description || 'Không có mô tả'}</p>
+                </div>
+                <a href="/home/property/${property.id}" class="property-action block mt-4 text-center bg-blue-500 hover:bg-blue-600 text-white font-semibold py sacud2 px-4 rounded">
+                    <i class="fas fa-eye mr-2"></i>Xem chi tiết
+                </a>`;
+        }
+
+        function connectToChat(convId) {
+            if (stompClient) {
+                if (currentSubscription) {
+                    currentSubscription.unsubscribe();
+                }
+            } else {
+                const socket = new SockJS('/ws');
+                stompClient = Stomp.over(socket);
+                stompClient.connect({}, () => {
+                    subscribeToConversation(convId);
+                    if (!conversationsSubscription) {
+                        subscribeToConversations();
+                    }
+                }, (error) => console.error('WebSocket connection error:', error));
+            }
+            subscribeToConversation(convId);
+        }
+
+        function subscribeToConversation(convId) {
+            if (stompClient && stompClient.connected) {
+                if (currentSubscription) {
+                    currentSubscription.unsubscribe();
+                }
+                currentSubscription = stompClient.subscribe('/topic/conversation/' + convId, (message) => {
+                    showMessage(JSON.parse(message.body));
+                });
+            }
+        }
+
+        function subscribeToConversations() {
+            if (stompClient && stompClient.connected && !conversationsSubscription) {
+                conversationsSubscription = stompClient.subscribe('/topic/conversations', () => {
+                    if (document.visibilityState === 'visible') {
+                        loadConversations();
+                    }
+                });
+            }
+        }
+
+        function connectToConversations() {
+            if (!stompClient) {
+                const socket = new SockJS('/ws');
+                stompClient = Stomp.over(socket);
+                stompClient.connect({}, () => {
+                    if (!conversationsSubscription) {
+                        subscribeToConversations();
+                    }
+                }, (error) => console.error('WebSocket connection error:', error));
+            }
+        }
+
+        function showMessage(message) {
+            if (message.conversationId === currentConversationId) {
+                const chatMessages = document.getElementById('chatMessages');
+                const msgDiv = document.createElement('div');
+                msgDiv.className = `message p-3 rounded-lg max-w-md shadow-sm ${message.sender === senderName ? 'bg-blue-100 ml-auto' : 'bg-gray-200'}`;
+                let contentHtml = `<span class="text-gray-800">${message.content || ''}</span>`;
+                if (message.fileUrl) {
+                    if (message.type === 'IMAGE') {
+                        contentHtml += `<div class="mt-2"><img src="${message.fileUrl}" alt="Uploaded image" class="max-w-full rounded-lg cursor-pointer file-message" onclick="openLightbox('${message.fileUrl}')"></div>`;
+                    } else {
+                        contentHtml += `
+                            <div class="mt-2 file-message flex items-center">
+                                <i class="fas fa-file-alt file-icon text-gray-500"></i>
+                                <a href="${message.fileUrl}" target="_blank" class="text-blue-500 hover:underline">${message.fileUrl.split('/').pop()}</a>
+                            </div>`;
+                    }
+                }
+                msgDiv.innerHTML = `
+                    <div class="message-content">
+                        ${contentHtml}
+                        <div class="message-time">${message.sendAt}</div>
+                    </div>`;
+                chatMessages.appendChild(msgDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        }
+
+        window.sendMessage = debounce(function() {
+            const input = document.getElementById('chatInput');
+            const content = input.value.trim();
+            if (content && stompClient && currentConversationId) {
+                const now = new Date().toLocaleString('vi-VN', {
+                    day: '2-digit', month: '2-digit', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit', second: '2-digit'
+                });
+                const csrfToken = document.querySelector('meta[name="_csrf"]').getAttribute('content');
+                const csrfHeader = document.querySelector('meta[name="_csrf_header"]').getAttribute('content');
+                stompClient.send("/app/chat.sendMessage", { [csrfHeader]: csrfToken }, JSON.stringify({
+                    content: content,
+                    type: 'TEXT',
+                    sendAt: now,
+                    conversationId: currentConversationId,
+                    sender: senderName
+                }));
+                input.value = '';
+            }
+        }, 300);
+
+        window.uploadFile = function() {
+            const fileInput = document.getElementById('fileInput');
+            const errorMessage = document.getElementById('errorMessage');
+            const file = fileInput.files[0];
+            errorMessage.classList.add('hidden');
+
+            const maxSizeInBytes = 10 * 1024 * 1024; // 10MB
+            if (file && file.size > maxSizeInBytes) {
+                errorMessage.textContent = 'Tệp quá lớn. Vui lòng chọn tệp dưới 10MB.';
+                errorMessage.classList.remove('hidden');
+                return;
+            }
+
+            if (!file) {
+                errorMessage.textContent = 'Vui lòng chọn một tệp.';
+                errorMessage.classList.remove('hidden');
+                return;
+            }
+
+            if (!stompClient || !currentConversationId) {
+                errorMessage.textContent = 'Không thể gửi tệp: Chưa kết nối hoặc chưa chọn cuộc trò chuyện.';
+                errorMessage.classList.remove('hidden');
+                return;
+            }
+
+            const formData = new FormData();
+            const csrfToken = document.querySelector('meta[name="_csrf"]').getAttribute('content');
+            const csrfHeader = document.querySelector('meta[name="_csrf_header"]').getAttribute('content');
+            formData.append('file', file);
+
+            fetch('/uploadFile', {
+                method: 'POST',
+                headers: {
+                    [csrfHeader]: csrfToken
+                },
+                body: formData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.fileUrl) {
+                        const now = new Date().toLocaleString('vi-VN', {
+                            day: '2-digit', month: '2-digit', year: 'numeric',
+                            hour: '2-digit', minute: '2-digit', second: '2-digit'
+                        });
+                        const type = file.type.startsWith('image/') ? 'IMAGE' : 'FILE';
+                        stompClient.send("/app/chat.sendMessage", { [csrfHeader]: csrfToken }, JSON.stringify({
+                            content: '',
+                            type: type,
+                            sendAt: now,
+                            conversationId: currentConversationId,
+                            sender: senderName,
+                            fileUrl: data.fileUrl
+                        }));
+                    } else {
+                        errorMessage.textContent = data.error || 'Tải tệp thất bại.';
+                        errorMessage.classList.remove('hidden');
+                    }
+                })
+                .catch(error => {
+                    errorMessage.textContent = 'Lỗi khi tải tệp: ' + error.message;
+                    errorMessage.classList.remove('hidden');
+                    console.error('Error uploading file:', error);
+                });
+            fileInput.value = '';
+        };
+
+        function openLightbox(imageUrl) {
+            const lightbox = document.getElementById('lightbox');
+            const lightboxImage = document.getElementById('lightbox-image');
+            lightboxImage.src = imageUrl;
+            lightbox.style.display = 'flex';
+        }
+
+        function closeLightbox() {
+            const lightbox = document.getElementById('lightbox');
+            lightbox.style.display = 'none';
+        }
+
+        document.getElementById('lightbox').addEventListener('click', function(e) {
+            if (e.target.className === 'lightbox' || e.target.className === 'close') {
+                closeLightbox();
+            }
+        });
+
+        // Ngắt kết nối WebSocket khi rời trang
+        window.addEventListener('beforeunload', () => {
+            if (stompClient) {
+                stompClient.disconnect();
+            }
+        });
+    </script>
+</div>
+</body>
+</html>

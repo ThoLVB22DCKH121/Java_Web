@@ -1,18 +1,11 @@
 <header class="header" th:fragment="header">
-    <div class="logo" style="margin-right: 80px">
-        <i class="fa-solid fa-house" style="font-size: 30px; color: black;"> </i>
-    </div>
-
     <nav class="navbar">
-        <ul>
-            <li><a th:href="@{/home}" th:classappend="${currentPage == 'home'} ? 'active' : ''"><b>Trang Chủ</b></a></li>
-            <li><a th:href="@{/news}" th:classappend="${currentPage == 'news'} ? 'active' : ''"><b>Tin Tức</b></a></li>
-            <li><a th:href="@{/handbook}" th:classappend="${currentPage == 'handbook'} ? 'active' : ''"><b>Wiki BĐS</b></a></li>
-            <li><a th:href="@{/projects}" th:classappend="${currentPage == 'projects'} ? 'active' : ''"><b>Dự án</b></a></li>
-        </ul>
+        <div class="logo" style="margin-right: 80px">
+            <a th:href="@{/home}"><i class="fa-solid fa-house" style="font-size: 30px; color: black;"> </i></a>
+        </div>
     </nav>
 
-    <div class="form">
+    <div class="form" >
         <div sec:authorize="!isAuthenticated()">
             <ul>
                 <li><a th:href="@{/login}">Đăng nhập</a></li>
@@ -21,7 +14,12 @@
         </div>
 
         <div sec:authorize="isAuthenticated()">
-            <span>Xin chào, <span sec:authentication="principal.fullName"></span></span>
+            <ul>
+                <li><a th:href="@{/favorites}"><i class="fa-solid fa-heart"></i> Danh sách yêu thích</a></li>
+                <li><a th:href="@{/history}"><i class="fa-solid fa-money-check"></i> Lịch sử giao dịch</a></li>
+                <li><a th:href="@{/profile}" style="color: black"><i class="fa-solid fa-user"></i> Thông tin cá nhân</a></li>
+                <li><span>Xin chào, <span sec:authentication="principal.fullName"></span></span></li>
+            </ul>
         </div>
 
         <div sec:authorize="isAuthenticated()">

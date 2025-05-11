@@ -2,8 +2,7 @@ package com.example.springboot.models;
 
 
 public class RegisterDTO {
-    private String firstName;
-    private String lastName;
+    private String fullName;
     private String username;
     private String email;
     private String password;
@@ -11,17 +10,11 @@ public class RegisterDTO {
     private String confirmPassword;
     private String address;
 
-    public String getFirstName() {
-        return firstName;
+    public String getFullName() {
+        return fullName;
     }
-    public void setFirstName(String firstName) {
-        this.firstName = firstName;
-    }
-    public String getLastName() {
-        return lastName;
-    }
-    public void setLastName(String lastName) {
-        this.lastName = lastName;
+    public void setFullName(String fullName) {
+        this.fullName = fullName;
     }
     public String getEmail() {
         return email;

@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="_csrf" th:content="${_csrf.token}"/>
+    <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+    <title>Quản lý đặt cọc</title>
+    <link rel="stylesheet" th:href="@{/css/admin.css}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+<div class="container-fluid">
+    <!-- Header -->
+    <div th:replace="~{fragments/header_admin :: div}"></div>
+
+    <div class="row" style="margin-top: 60px">
+        <!-- Sidebar -->
+        <div class="col-md-2">
+            <div th:replace="~{fragments/sidebar_admin :: div}"></div>
+        </div>
+
+        <!-- Nội dung chính -->
+        <div class="col-md-10 content">
+            <h3>Quản lý đặt cọc</h3>
+            <div class="mb-2">
+                <form id="searchForm" class="d-inline-flex mb-3">
+                    <input type="text" id="keywordInput" class="form-control form-control-sm me-1" name="keyword"
+                           placeholder="Tìm theo tên, số điện thoại, ghi chú..." style="width: 200px;">
+                    <button type="submit" class="btn btn-outline-primary btn-sm">Tìm</button>
+                </form>
+            </div>
+            <table class="table table-bordered" id="depositTable">
+                <thead>
+                <tr>
+                    <th>ID Đặt Cọc</th>
+                    <th>Tên Khách Hàng</th>
+                    <th>SĐT</th>
+                    <th>Số Tiền</th>
+                    <th>Ghi Chú</th>
+                    <th>Ngày Tạo</th>
+                    <th>Trạng Thái</th>
+                    <th>Hành Động</th>
+                </tr>
+                </thead>
+                <tbody id="depositTableBody">
+                <!-- Dữ liệu sẽ được render bằng JavaScript -->
+                </tbody>
+            </table>
+            <nav aria-label="Page navigation" class="mt-4" id="paginationNav">
+                <ul class="pagination justify-content-center" id="pagination">
+                    <!-- JavaScript sẽ render -->
+                </ul>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Modal cập nhật trạng thái đặt cọc -->
+    <div class="modal fade" id="updateStatusModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Cập nhật trạng thái đặt cọc</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="editDepositId">
+                    <div class="mb-3">
+                        <label for="editStatusSelect" class="form-label">Chọn trạng thái:</label>
+                        <select id="editStatusSelect" class="form-select">
+                            <option th:each="status : ${depositStatus}"
+                                    th:value="${status.name()}"
+                                    th:text="${status.displayName}">
+                            </option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="button" class="btn btn-primary" id="saveStatusBtn">Cập nhật</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div th:replace="~{fragments/footer_admin :: footer}"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const depositTableBody = document.querySelector("#depositTableBody");
+        const pagination = document.getElementById("pagination");
+        const searchForm = document.getElementById("searchForm");
+        const keywordInput = document.getElementById("keywordInput");
+
+        const updateStatusModal = new bootstrap.Modal(document.getElementById('updateStatusModal'));
+        const editDepositIdInput = document.getElementById('editDepositId');
+        const editStatusSelect = document.getElementById('editStatusSelect');
+        const saveStatusBtn = document.getElementById('saveStatusBtn');
+
+        let currentPage = 0;
+        let size = 5;
+        let currentKeyword = "";
+
+        // Tải danh sách đặt cọc
+        function loadDeposits(page = 0, keyword = "") {
+            fetch(`/admin/deposit/search?page=${page}&size=${size}&keyword=${encodeURIComponent(keyword)}`)
+                .then(response => response.json())
+                .then(data => {
+                    renderDeposits(data.content);
+                    renderPagination(data.totalPages, data.number);
+                })
+                .catch(error => console.error('Lỗi khi tải đặt cọc:', error));
+        }
+
+        // Render danh sách đặt cọc
+        function renderDeposits(deposits) {
+            depositTableBody.innerHTML = "";
+            if (deposits.length === 0) {
+                depositTableBody.innerHTML = `<tr><td colspan="8" class="text-center">Không tìm thấy đặt cọc nào!</td></tr>`;
+                return;
+            }
+            deposits.forEach(deposit => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${deposit.id}</td>
+                    <td>${deposit.fullName || 'N/A'}</td>
+                    <td>${deposit.phone || 'N/A'}</td>
+                    <td>${deposit.depositAmount ? deposit.depositAmount.toLocaleString('vi-VN') + ' VNĐ' : 'N/A'}</td>
+                    <td>${deposit.note || 'N/A'}</td>
+                    <td>${deposit.createAt ? new Date(deposit.createAt).toLocaleString('vi-VN') : 'N/A'}</td>
+                    <td>${deposit.status || 'N/A'}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary update-status-btn"
+                                data-deposit-id="${deposit.id}"
+                                data-deposit-status="${deposit.status || ''}">
+                            Cập nhật trạng thái
+                        </button>
+                    </td>
+                `;
+                depositTableBody.appendChild(row);
+            });
+
+            // Gắn sự kiện cho các nút cập nhật trạng thái
+            document.querySelectorAll('.update-status-btn').forEach(button => {
+                button.addEventListener('click', function () {
+                    const depositId = this.getAttribute('data-deposit-id');
+                    const depositStatus = this.getAttribute('data-deposit-status');
+                    openUpdateStatusModal(depositId, depositStatus);
+                });
+            });
+        }
+
+        // Render phân trang
+        function renderPagination(totalPages, current) {
+            pagination.innerHTML = "";
+            if (totalPages <= 1) return;
+
+            const prevLi = document.createElement("li");
+            prevLi.className = `page-item ${current === 0 ? "disabled" : ""}`;
+            prevLi.innerHTML = `<a class="page-link" href="#">Trước</a>`;
+            if (current !== 0) {
+                prevLi.addEventListener("click", (e) => {
+                    e.preventDefault();
+                    currentPage = current - 1;
+                    loadDeposits(currentPage, currentKeyword);
+                });
+            }
+            pagination.appendChild(prevLi);
+
+            for (let i = 0; i < totalPages; i++) {
+                const li = document.createElement("li");
+                li.className = `page-item ${i === current ? "active" : ""}`;
+                li.innerHTML = `<a class="page-link" href="#">${i + 1}</a>`;
+                li.addEventListener("click", (e) => {
+                    e.preventDefault();
+                    currentPage = i;
+                    loadDeposits(currentPage, currentKeyword);
+                });
+                pagination.appendChild(li);
+            }
+
+            const nextLi = document.createElement("li");
+            nextLi.className = `page-item ${current === totalPages - 1 ? "disabled" : ""}`;
+            nextLi.innerHTML = `<a class="page-link" href="#">Sau</a>`;
+            if (current !== totalPages - 1) {
+                nextLi.addEventListener("click", (e) => {
+                    e.preventDefault();
+                    currentPage = current + 1;
+                    loadDeposits(currentPage, currentKeyword);
+                });
+            }
+            pagination.appendChild(nextLi);
+        }
+
+        // Mở modal cập nhật trạng thái
+        function openUpdateStatusModal(depositId, currentStatus) {
+            editDepositIdInput.value = depositId;
+            editStatusSelect.value = currentStatus;
+            updateStatusModal.show();
+        }
+
+        // Xử lý tìm kiếm
+        searchForm.addEventListener("submit", function (event) {
+            event.preventDefault();
+            currentKeyword = keywordInput.value;
+            currentPage = 0;
+            loadDeposits(currentPage, currentKeyword);
+        });
+
+        // Lưu trạng thái mới
+        saveStatusBtn.addEventListener('click', () => {
+            const depositId = editDepositIdInput.value;
+            const newStatus = editStatusSelect.value.toUpperCase();
+
+            const csrfToken = document.querySelector('meta[name="_csrf"]').getAttribute('content');
+            const csrfHeader = document.querySelector('meta[name="_csrf_header"]').getAttribute('content');
+
+            fetch(`/admin/deposit/${depositId}?status=${newStatus}`, {
+                method: 'PATCH',
+                headers: {
+                    [csrfHeader]: csrfToken
+                }
+            })
+                .then(response => {
+                    if (response.ok) {
+                        alert('Cập nhật trạng thái đặt cọc thành công!');
+                        updateStatusModal.hide();
+                        loadDeposits(currentPage, currentKeyword);
+                    } else {
+                        return response.text().then(text => {
+                            throw new Error(`Cập nhật trạng thái thất bại! Mã lỗi: ${response.status}. Chi tiết: ${text}`);
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Lỗi khi cập nhật trạng thái:', error);
+                    alert(error.message || 'Có lỗi xảy ra khi cập nhật trạng thái!');
+                });
+        });
+
+        // Tải dữ liệu ban đầu
+        loadDeposits();
+    });
+</script>
+</body>
+</html>

@@ -1,7 +1,7 @@
 package com.example.springboot.converter;
 
 import com.example.springboot.models.UserDTO;
-import com.example.springboot.repository.entity.AppUser;
+import com.example.springboot.repository.entity.User;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -14,20 +14,19 @@ public class UserDTOConverter {
     @Autowired
     private ModelMapper modelMapper;
 
-    public UserDTO toUserDTO(AppUser appUser) {
-        UserDTO userDTO = modelMapper.map(appUser, UserDTO.class);
-        userDTO.setName(appUser.getLastname()+" "+appUser.getFirstname());
+    public UserDTO toUserDTO(User userEntity) {
+        UserDTO userDTO = modelMapper.map(userEntity, UserDTO.class);
         return userDTO;
     }
 
-    public List<UserDTO> toUserDTOList(List<AppUser> users) {
+    public List<UserDTO> toUserDTOList(List<User> users) {
         return users.stream()
                 .map(this::toUserDTO)
                 .collect(Collectors.toList());
     }
 
-    public AppUser toEntity(UserDTO userDTO, AppUser appUser) {
-        modelMapper.map(userDTO, appUser);
-        return appUser;
+    public User toEntity(UserDTO userDTO, User userEntity) {
+        modelMapper.map(userDTO, userEntity);
+        return userEntity;
     }
 }

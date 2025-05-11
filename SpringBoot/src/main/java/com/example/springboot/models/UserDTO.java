@@ -4,17 +4,17 @@ import com.example.springboot.enums.UserRole;
 
 public final class UserDTO {
     private int id;
-    private String name;
+    private String fullName;
     private String email;
     private String address;
     private String phone;
     private UserRole role;
 
-    public String getName() {
-        return name;
+    public String getFullName() {
+        return fullName;
     }
-    public void setName(String name) {
-        this.name = name;
+    public void setFullName(String fullname) {
+        this.fullName = fullname;
     }
     public String getEmail() {
         return email;

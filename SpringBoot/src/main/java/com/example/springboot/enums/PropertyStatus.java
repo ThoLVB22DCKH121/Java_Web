@@ -1,9 +1,9 @@
 package com.example.springboot.enums;
 
 public enum PropertyStatus {
-    AVAILABLE("Còn bán"),
+    AVAILABLE("Chưa đặt cọc"),
     SOLD("Đã bán"),
-    RESERVED("Đặt trước");
+    RESERVED("Đã đặt cọc");
 
     private final String displayName;
 

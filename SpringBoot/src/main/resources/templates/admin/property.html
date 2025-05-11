@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="_csrf" th:content="${_csrf.token}"/>
+    <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+    <title>Quản Lý Bất Động Sản</title>
+    <link rel="stylesheet" th:href="@{/css/admin.css}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        .search-container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-right: 10px;
+            min-width: 150px;
+        }
+        .form-group input, .form-group select {
+            font-size: 14px;
+        }
+        .form-group input[type="number"] {
+            width: 100px;
+        }
+        .status-btn {
+            font-size: 12px;
+            padding: 2px 6px;
+            margin: 2px;
+        }
+        .status-dropdown {
+            min-width: 200px;
+        }
+        .status-badge {
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-weight: 500;
+            text-align: center;
+            display: inline-block;
+            margin-bottom: 4px;
+        }
+        .status-badge.AVAILABLE {
+            background-color: #d1e7dd;
+            color: #0f5132;
+        }
+        .status-badge.SOLD {
+            background-color: #f8d7da;
+            color: #842029;
+        }
+        .status-badge.RESERVED {
+            background-color: #cff4fc;
+            color: #055160;
+        }
+        @media (max-width: 768px) {
+            .form-group {
+                min-width: 100%;
+                margin-right: 0;
+                margin-bottom: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container-fluid">
+    <!-- Header -->
+    <div th:replace="~{fragments/header_admin :: div}"></div>
+
+    <div class="row" style="margin-top: 60px;">
+        <!-- Sidebar -->
+        <div class="col-md-2">
+            <div th:replace="~{fragments/sidebar_admin :: div}"></div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="col-md-10 p-4">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h3 class="fw-bold">Quản Lý Bất Động Sản</h3>
+                <button class="btn btn-outline-success" onclick="togglePropertyForm()">
+                    <i class="fas fa-plus me-2"></i>Thêm Bất Động Sản
+                </button>
+            </div>
+            <!-- Form tìm kiếm -->
+            <div class="search-container">
+                <form id="searchForm" class="d-flex flex-wrap align-items-end">
+                    <div class="form-group">
+                        <label for="search_propertyId" class="form-label">Id</label>
+                        <input id="search_propertyId" type="number" class="form-control" placeholder="Id bất động sản">
+                    </div>
+                    <div class="form-group">
+                        <label for="search_type" class="form-label">Loại</label>
+                        <select id="search_type" class="form-select">
+                            <option value="">Tất cả</option>
+                            <option th:each="type : ${propertyType}" th:value="${type}" th:text="${type.displayName}"></option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Diện tích (m²)</label>
+                        <div class="d-flex gap-2">
+                            <input type="number" class="form-control" id="minArea" placeholder="Min" step="0.1">
+                            <input type="number" class="form-control" id="maxArea" placeholder="Max" step="0.1">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Giá (triệu)</label>
+                        <div class="d-flex gap-2">
+                            <input type="number" class="form-control" id="minPrice" placeholder="Min" step="0.1">
+                            <input type="number" class="form-control" id="maxPrice" placeholder="Max" step="0.1">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="search_status" class="form-label">Trạng thái</label>
+                        <select id="search_status" class="form-select">
+                            <option value="">Tất cả</option>
+                            <option th:each="status : ${propertyStatus}" th:value="${status}" th:text="${status.displayName}"></option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="search_address" class="form-label">Địa chỉ</label>
+                        <input id="search_address" type="text" class="form-control" placeholder="Địa chỉ">
+                    </div>
+                    <div class="form-group">
+                        <label for="search_staffId" class="form-label">Nhân viên phụ trách</label>
+                        <input id="search_staffId" type="number" class="form-control" placeholder="Id nhân viên">
+                    </div>
+                    <div class="form-group">
+                        <button type="submit" class="btn btn-primary">Tìm kiếm</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Add Property Form -->
+            <div id="projectFormContainer" class="collapse mb-4">
+                <div class="card shadow-sm p-4">
+                    <h5 class="card-title fw-semibold mb-4">Thêm Bất Động Sản Mới</h5>
+                    <form id="propertyForm">
+                        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="name" class="form-label fw-medium">Tên bất động sản:</label>
+                                <input type="text" class="form-control" id="name" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="type" class="form-label fw-medium">Loại bất động sản:</label>
+                                <select class="form-select" id="type"  required>
+                                    <option value="">Chọn loại</option>
+                                    <option th:each="type : ${propertyType}" th:value="${type}" th:text="${type.displayName}"></option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="area" class="form-label fw-medium">Diện tích (m²):</label>
+                                <input type="number" class="form-control" id="area" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="price" class="form-label fw-medium">Giá (VNĐ):</label>
+                                <input type="number" class="form-control" id="price" required>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="status" class="form-label fw-medium">Trạng thái:</label>
+                            <select class="form-select" id="status" required>
+                                <option value="">Chọn trạng thái</option>
+                                <option th:each="status : ${propertyStatus}" th:value="${status}" th:text="${status.displayName}"></option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="description" class="form-label fw-medium">Mô tả:</label>
+                            <textarea class="form-control" id="description" rows="3"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="address" class="form-label fw-medium">Địa chỉ:</label>
+                            <input type="text" class="form-control" id="address" required placeholder="Ví dụ: 123 Vĩnh Phúc, Quận Ba Đình, Hà Nội">
+                        </div>
+                        <div class="mb-3">
+                            <label for="mapUrl" class="form-label fw-medium">URL bản đồ:</label>
+                            <input type="text" class="form-control" id="mapUrl" placeholder="https://maps.google.com/...">
+                        </div>
+                        <div class="mb-3">
+                            <label for="images" class="form-label fw-medium">Ảnh (URLs, phân tách bằng dấu phẩy):</label>
+                            <input type="text" class="form-control" id="images" placeholder="http://example.com/image1.jpg,http://example.com/image2.jpg">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Thêm Bất Động Sản</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Property List Table -->
+            <input type="file" id="imageUploadInput" accept="image/*" style="display: none;" onchange="uploadImage(event)">
+
+            <div class="table-responsive">
+                <table id="propertyTable" class="table table-hover table-bordered align-middle">
+                    <thead class="table-light">
+                    <tr>
+                        <th scope="col" style="width: 5%;">ID</th>
+                        <th scope="col" style="width: 20%;">Tên</th>
+                        <th scope="col" style="width: 30%;">Địa chỉ</th>
+                        <th scope="col" style="width: 15%;">Trạng thái</th>
+                        <th scope="col" style="width: 30%;">Hành động</th>
+                    </tr>
+                    </thead>
+                    <tbody id="propertyTableBody">
+                    <!-- Data will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Phân trang -->
+            <nav aria-label="Page navigation" class="mt-4" id="paginationNav" style="display: none;">
+                <ul class="pagination justify-content-center" id="paginationList">
+                    <!-- Pagination buttons sẽ được render bằng JS -->
+                </ul>
+            </nav>
+
+            <!-- Edit Property Modal -->
+            <div class="modal fade" id="editPropertyModal" tabindex="-1" aria-labelledby="modalTitleProperty" aria-hidden="true">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title fw-bold" id="modalTitleProperty">Chỉnh Sửa Bất Động Sản</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="editPropertyForm" method="post">
+                                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                                <input type="hidden" id="editIdProperty" name="propertyId">
+
+                                <div class="mb-3">
+                                    <label for="editNameProperty" class="form-label">Tên Bất Động Sản</label>
+                                    <input type="text" class="form-control" id="editNameProperty" name="name">
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="editTypeProperty" class="form-label">Loại</label>
+                                    <select class="form-select" id="editTypeProperty" name="type">
+                                        <option th:each="type : ${propertyType}" th:value="${type}" th:text="${type.displayName}"></option>
+                                    </select>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="editAreaProperty" class="form-label">Diện Tích (m²)</label>
+                                    <input type="number" class="form-control" id="editAreaProperty" name="area">
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="editPriceProperty" class="form-label">Giá (triệu)</label>
+                                    <input type="number" class="form-control" id="editPriceProperty" name="price">
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="editStatusProperty" class="form-label">Trạng Thái</label>
+                                    <select class="form-select" id="editStatusProperty" name="status">
+                                        <option th:each="status : ${propertyStatus}" th:value="${status}" th:text="${status.displayName}"></option>
+                                    </select>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="editDescriptionProperty" class="form-label">Mô Tả</label>
+                                    <textarea class="form-control" id="editDescriptionProperty" name="description" rows="3"></textarea>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="editAddressProperty" class="form-label">Địa Chỉ</label>
+                                    <input type="text" class="form-control" id="editAddressProperty" name="address">
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="editMapUrlProperty" class="form-label">Map URL (iframe)</label>
+                                    <input type="text" class="form-control" id="editMapUrlProperty" name="mapUrl">
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="editImagesProperty" class="form-label">Ảnh (URLs, cách nhau dấu phẩy)</label>
+                                    <input type="text" class="form-control" id="editImagesProperty" name="images">
+                                </div>
+
+                                <button type="submit" class="btn btn-success">Cập Nhật</button>
+                            </form>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status Change Modal -->
+            <div class="modal fade" id="changeStatusModal" tabindex="-1" aria-labelledby="changeStatusModalLabel" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="changeStatusModalLabel">Thay Đổi Trạng Thái</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <input type="hidden" id="statusPropertyId">
+                            <p>Chọn trạng thái mới cho bất động sản <strong id="statusPropertyName"></strong>:</p>
+                            <div class="d-grid gap-2" id="statusButtonContainer">
+                                <!-- Status buttons will be inserted here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div th:replace="~{fragments/footer_admin :: footer}"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // Global variables
+    let currentPage = 0;
+    let pageSize = 5;
+    const availableStatuses = {
+        'AVAILABLE': {
+            displayName: 'Chưa đặt cọc',
+            color: 'success',
+            icon: 'fa-check-circle'
+        },
+        'RESERVED': {
+            displayName: 'Đã đặt cọc',
+            color: 'info',
+            icon: 'fa-bookmark'
+        },
+        'SOLD': {
+            displayName: 'Đã bán',
+            color: 'danger',
+            icon: 'fa-ban'
+        }
+    };
+
+    function togglePropertyForm() {
+        const formContainer = document.getElementById('projectFormContainer');
+        formContainer.classList.toggle('collapse');
+    }
+
+    // Thêm BDS
+    document.getElementById('propertyForm').addEventListener('submit', async function(event) {
+        event.preventDefault();
+
+        const csrfToken = document.querySelector('meta[name="_csrf"]').getAttribute('content');
+        const csrfHeader = document.querySelector('meta[name="_csrf_header"]').getAttribute('content');
+
+        const property = {
+            name: document.getElementById('name').value,
+            type: document.getElementById('type').value,
+            area: parseFloat(document.getElementById('area').value),
+            price: parseFloat(document.getElementById('price').value),
+            status: document.getElementById('status').value,
+            description: document.getElementById('description').value,
+            address: document.getElementById('address').value,
+            mapUrl: document.getElementById('mapUrl').value,
+            images: document.getElementById('images').value.trim()
+        };
+
+        try {
+            const response = await fetch('/admin/property', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    [csrfHeader]: csrfToken // Thêm CSRF header vào đây
+                },
+                body: JSON.stringify(property)
+            });
+
+            if (response.ok) {
+                alert('Thêm bất động sản thành công!');
+                window.location.reload();
+            } else {
+                const errorData = await response.json();
+                console.error('Lỗi khi thêm:', errorData);
+                alert('Có lỗi xảy ra!');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Không thể kết nối server.');
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadProperties(0);
+
+        const searchForm = document.querySelector('.search-container form');
+        if (searchForm) {
+            searchForm.addEventListener('submit', function(event) {
+                event.preventDefault(); // Chặn reload
+                loadProperties(0); // Load lại từ page 0
+            });
+        }
+    });
+
+    async function loadProperties(page = 0) {
+        try {
+            const searchParams = new URLSearchParams();
+            searchParams.append('page', page);
+            searchParams.append('size', pageSize);
+
+            const formFields = [
+                'search_propertyId', 'search_type', 'minArea', 'maxArea',
+                'minPrice', 'maxPrice', 'search_status', 'search_address', 'search_staffId'
+            ];
+
+            formFields.forEach(id => {
+                const element = document.getElementById(id);
+                if (element && element.value.trim() !== '') {
+                    const paramName = id.replace('search_', '');
+                    searchParams.append(paramName, element.value.trim());
+                }
+            });
+
+            const response = await fetch(`/admin/property/search?${searchParams.toString()}`);
+            if (!response.ok) throw new Error('Fetch properties failed');
+
+            const data = await response.json();
+
+            renderProperties(data.content);
+            renderPagination(data.totalPages, page);
+            currentPage = page;
+
+        } catch (error) {
+            console.error('Lỗi khi load properties:', error);
+        }
+    }
+
+    function renderProperties(properties) {
+        const tbody = document.getElementById('propertyTableBody');
+        if (!tbody) return;
+
+        tbody.innerHTML = '';
+
+        properties.forEach(property => {
+            const statusDisplay = getStatusDisplay(property.status);
+
+            const row = `
+        <tr>
+            <td>${property.id}</td>
+            <td>${property.name}</td>
+            <td>${property.address}</td>
+            <td>
+                <div class="d-flex flex-column align-items-start">
+                    <span class="status-badge ${property.status}">${statusDisplay.displayName}</span>
+                    <button class="btn btn-sm btn-outline-primary mt-1" onclick="openStatusModal(${property.id}, '${property.name}', '${property.status}')">
+                        <i class="fas fa-exchange-alt"></i> Đổi trạng thái
+                    </button>
+                </div>
+            </td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary" onclick="openEditModal(${property.id})">
+                    <i class="fa-solid fa-pencil"></i> Sửa
+                </button>
+                <button class="btn btn-sm btn-outline-danger" onclick="deleteProperty(${property.id})">
+                    <i class="fa-solid fa-trash"></i> Xóa
+                </button>
+                <a href="/admin/assignment_property/${property.id}" class="btn btn-sm btn-outline-success">
+                    <i class="fa-solid fa-user-plus"></i> Phân công
+                </a>
+                <button class="btn btn-sm btn-outline-info" onclick="triggerImageUpload(${property.id})">
+                    <i class="fa-solid fa-image"></i> Thêm ảnh
+                </button>
+            </td>
+        </tr>
+        `;
+            tbody.insertAdjacentHTML('beforeend', row);
+        });
+    }
+
+    function getStatusDisplay(status) {
+        return availableStatuses[status] || {
+            displayName: status,
+            color: 'secondary',
+            icon: 'fa-question-circle'
+        };
+    }
+
+    function openStatusModal(propertyId, propertyName, currentStatus) {
+        document.getElementById('statusPropertyId').value = propertyId;
+        document.getElementById('statusPropertyName').textContent = propertyName;
+
+        const buttonContainer = document.getElementById('statusButtonContainer');
+        buttonContainer.innerHTML = '';
+
+        // Create a button for each possible status
+        Object.entries(availableStatuses).forEach(([status, details]) => {
+            if (status !== currentStatus) {
+                const button = `
+                <button type="button" class="btn btn-${details.color} mb-2" onclick="changePropertyStatus(${propertyId}, '${status}')">
+                    <i class="fas ${details.icon} me-2"></i>${details.displayName}
+                </button>
+                `;
+                buttonContainer.insertAdjacentHTML('beforeend', button);
+            }
+        });
+
+        // Show the modal
+        const modal = new bootstrap.Modal(document.getElementById('changeStatusModal'));
+        modal.show();
+    }
+
+    async function changePropertyStatus(propertyId, newStatus) {
+        const csrfToken = document.querySelector('meta[name="_csrf"]').getAttribute('content');
+        const csrfHeader = document.querySelector('meta[name="_csrf_header"]').getAttribute('content');
+
+        try {
+            const response = await fetch(`/admin/property/${propertyId}?status=${newStatus}`, {
+                method: 'PATCH',
+                headers: {
+                    [csrfHeader]: csrfToken
+                }
+            });
+
+            if (response.ok) {
+                // Hide the modal
+                bootstrap.Modal.getInstance(document.getElementById('changeStatusModal')).hide();
+
+                // Show success message
+                alert('Cập nhật trạng thái thành công!');
+
+                // Reload the current page of properties
+                loadProperties(currentPage);
+            } else {
+                const error = await response.text();
+                console.error('Lỗi khi cập nhật trạng thái:', error);
+                alert('Có lỗi xảy ra khi cập nhật trạng thái bất động sản.');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Không thể kết nối server.');
+        }
+    }
+
+    function renderPagination(totalPages, currentPage) {
+        const paginationNav = document.getElementById('paginationNav');
+        const paginationList = document.getElementById('paginationList');
+
+        if (!paginationNav || !paginationList) return;
+
+        if (totalPages <= 1) {
+            paginationNav.style.display = 'none';
+            return;
+        }
+
+        paginationNav.style.display = 'block';
+        paginationList.innerHTML = '';
+
+        // Nút "Trước"
+        paginationList.innerHTML += `
+        <li class="page-item ${currentPage === 0 ? 'disabled' : ''}">
+            <button class="page-link" onclick="loadProperties(${currentPage - 1})">Trước</button>
+        </li>
+        `;
+
+        // Các nút số trang
+        for (let i = 0; i < totalPages; i++) {
+            paginationList.innerHTML += `
+            <li class="page-item ${i === currentPage ? 'active' : ''}">
+                <button class="page-link" onclick="loadProperties(${i})">${i + 1}</button>
+            </li>
+            `;
+        }
+
+        // Nút "Sau"
+        paginationList.innerHTML += `
+        <li class="page-item ${currentPage === totalPages - 1 ? 'disabled' : ''}">
+            <button class="page-link" onclick="loadProperties(${currentPage + 1})">Sau</button>
+        </li>
+        `;
+    }
+
+    async function deleteProperty(propertyId) {
+        if (!confirm('Bạn có chắc chắn muốn xoá bất động sản này không?')) {
+            return;
+        }
+
+        const csrfToken = document.querySelector('meta[name="_csrf"]').getAttribute('content');
+        const csrfHeader = document.querySelector('meta[name="_csrf_header"]').getAttribute('content');
+
+        try {
+            const response = await fetch(`/admin/property/${propertyId}`, {
+                method: 'DELETE',
+                headers: {
+                    [csrfHeader]: csrfToken
+                }
+            });
+
+            if (response.ok) {
+                alert('Xóa thành công!');
+                loadProperties(currentPage); // Reload current page instead of reloading whole page
+            } else {
+                const errorData = await response.json();
+                console.error('Lỗi khi xóa:', errorData);
+                alert('Không thể xóa bất động sản.');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Không thể kết nối server.');
+        }
+    }
+
+    async function openEditModal(id) {
+        try {
+            console.log('Loading property id:', id);
+
+            const response = await fetch(`/admin/property/${id}`);
+            if (!response.ok) throw new Error('Không tìm thấy bất động sản');
+
+            const property = await response.json();
+
+            // Danh sách các trường cần đổ dữ liệu
+            document.getElementById('editIdProperty').value = property.id;
+            document.getElementById('editNameProperty').value = property.name;
+            document.getElementById('editTypeProperty').value = property.type;
+            document.getElementById('editAreaProperty').value = property.area;
+            document.getElementById('editPriceProperty').value = property.price;
+            document.getElementById('editStatusProperty').value = property.status;
+            document.getElementById('editDescriptionProperty').value = property.description || '';
+            document.getElementById('editAddressProperty').value = property.address || '';
+            document.getElementById('editMapUrlProperty').value = property.mapUrl || '';
+            document.getElementById('editImagesProperty').value = property.images || '';
+
+            // Hiển thị modal
+            const editModal = new bootstrap.Modal(document.getElementById('editPropertyModal'));
+            editModal.show();
+
+        } catch (error) {
+            console.error('Lỗi khi mở modal chỉnh sửa:', error);
+            alert('Không thể tải dữ liệu bất động sản.');
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const editForm = document.getElementById('editPropertyForm');
+        editForm.addEventListener('submit', async function(event) {
+            event.preventDefault();
+
+            const csrfToken = document.querySelector('meta[name="_csrf"]').getAttribute('content');
+            const csrfHeader = document.querySelector('meta[name="_csrf_header"]').getAttribute('content');
+            const id = document.getElementById('editIdProperty').value;
+            const updatedProperty = {
+                id: id,
+                name: document.getElementById('editNameProperty').value.trim(),
+                type: document.getElementById('editTypeProperty').value,
+                area: parseFloat(document.getElementById('editAreaProperty').value),
+                price: parseFloat(document.getElementById('editPriceProperty').value),
+                status: document.getElementById('editStatusProperty').value,
+                description: document.getElementById('editDescriptionProperty').value.trim(),
+                address: document.getElementById('editAddressProperty').value.trim(),
+                mapUrl: document.getElementById('editMapUrlProperty').value.trim(),
+                images: document.getElementById('editImagesProperty').value.trim()
+            };
+
+            try {
+                const response = await fetch(`/admin/property/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        [csrfHeader]: csrfToken
+                    },
+                    body: JSON.stringify(updatedProperty)
+                });
+
+                if (!response.ok) throw new Error('Cập nhật thất bại');
+
+                // Nếu thành công
+                alert('Cập nhật bất động sản thành công!');
+                bootstrap.Modal.getInstance(document.getElementById('editPropertyModal')).hide();
+                loadProperties(currentPage); // Refresh lại bảng
+            } catch (error) {
+                console.error('Lỗi khi cập nhật:', error);
+                alert('Có lỗi xảy ra khi cập nhật bất động sản.');
+            }
+        });
+    });
+
+    // Tooltip initialization (nếu cần)
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+
+    // Hiển thị thông báo status nếu có
+    document.addEventListener('DOMContentLoaded', function() {
+        const statusMessage = new URLSearchParams(window.location.search).get('status');
+        if (statusMessage === 'success') {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'alert alert-success alert-dismissible fade show';
+            alertDiv.innerHTML = 'Thao tác thành công! <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>';
+            document.querySelector('.col-md-10.p-4').prepend(alertDiv);
+
+            // Auto hide after 5 seconds
+            setTimeout(() => {
+                const bsAlert = new bootstrap.Alert(alertDiv);
+                bsAlert.close();
+            }, 5000);
+        }
+    });
+
+    // Trigger the hidden file input click
+    function triggerImageUpload(propertyId) {
+        const fileInput = document.getElementById('imageUploadInput');
+        fileInput.setAttribute('data-property-id', propertyId); // Store propertyId in the input
+        fileInput.click();
+    }
+
+    // Handle image upload
+    async function uploadImage(event) {
+        const fileInput = event.target;
+        const propertyId = fileInput.getAttribute('data-property-id');
+        const file = fileInput.files[0];
+
+        if (!file) {
+            alert('Vui lòng chọn một file ảnh!');
+            return;
+        }
+
+        const csrfToken = document.querySelector('meta[name="_csrf"]').getAttribute('content');
+        const csrfHeader = document.querySelector('meta[name="_csrf_header"]').getAttribute('content');
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const response = await fetch(`/admin/property/${propertyId}/upload`, {
+                method: 'PATCH',
+                headers: {
+                    [csrfHeader]: csrfToken
+                },
+                body: formData
+            });
+
+            if (response.ok) {
+                alert('Tải ảnh lên thành công!');
+                loadProperties(currentPage); // Reload the current page to reflect changes
+            } else {
+                const errorData = await response.json();
+                console.error('Lỗi khi tải ảnh:', errorData);
+                alert('Có lỗi xảy ra khi tải ảnh lên!');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Không thể kết nối server.');
+        } finally {
+            // Clear the file input
+            fileInput.value = '';
+            fileInput.removeAttribute('data-property-id');
+        }
+    }
+</script>
+</body>
+</html>

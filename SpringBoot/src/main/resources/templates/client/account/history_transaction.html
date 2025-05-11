@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="_csrf" th:content="${_csrf.token}"/>
+    <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+    <title>Lịch Sử Đặt Cọc</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .table-container {
+            margin: 20px auto;
+            max-width: 1200px;
+            padding: 0 15px;
+        }
+        .table th, .table td {
+            vertical-align: middle;
+            text-align: center;
+        }
+        .status-success {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .status-failed {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .status-pending {
+            color: #ffc107;
+            font-weight: bold;
+        }
+        .status-cancelled {
+            color: #6c757d;
+            font-weight: bold;
+        }
+        .no-data {
+            font-style: italic;
+            color: #6c757d;
+        }
+        .table-link {
+            color: #007bff;
+            text-decoration: none;
+        }
+        .table-link:hover {
+            text-decoration: underline;
+        }
+        @media (max-width: 576px) {
+            .table {
+                font-size: 0.9rem;
+            }
+            .table th, .table td {
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+<!-- Header -->
+<div th:replace="~{fragments/header :: header}"></div>
+
+<!-- Main Content -->
+<div class="container table-container">
+    <h2 class="text-center my-4">Lịch Sử Đặt Cọc</h2>
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover" role="grid" aria-label="Lịch Sử Đặt Cọc">
+            <thead class="table-dark">
+            <tr>
+                <th scope="col">ID Đặt Cọc</th>
+                <th scope="col">Ngày Đặt Cọc</th>
+                <th scope="col">Số Tiền</th>
+                <th scope="col">Ghi Chú</th>
+                <th scope="col">Chi Tiết BDS</th>
+                <th scope="col">Trạng Thái</th>
+            </tr>
+            </thead>
+            <tbody id="depositHistoryTableBody">
+            <!-- Dữ liệu sẽ được render bằng JavaScript -->
+            </tbody>
+        </table>
+    </div>
+    <nav aria-label="Page navigation" class="mt-4" id="paginationNav">
+        <ul class="pagination justify-content-center" id="pagination">
+            <!-- JavaScript sẽ render -->
+        </ul>
+    </nav>
+</div>
+
+<!-- Footer -->
+<div th:replace="~{fragments/footer :: footer}"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script th:inline="javascript">
+    const userId = /*[[${userId}]]*/ '';
+    let currentPage = 0;
+    const size = 5;
+
+    document.addEventListener('DOMContentLoaded', function () {
+        if (!userId) {
+            document.getElementById('depositHistoryTableBody').innerHTML = `
+                <tr><td colspan="6" class="text-center no-data">Vui lòng đăng nhập để xem lịch sử đặt cọc</td></tr>
+            `;
+            return;
+        }
+        loadDepositHistory(userId, currentPage, size);
+    });
+
+    async function loadDepositHistory(userId, page, size) {
+        try {
+            const response = await fetch(`/history_deposit?userId=${userId}&page=${page}&size=${size}`);
+            if (!response.ok) throw new Error('Không thể tải lịch sử đặt cọc');
+            const data = await response.json();
+            renderDepositHistory(data.content);
+            renderPagination(data.totalPages, data.number);
+        } catch (error) {
+            console.error('Lỗi:', error);
+            document.getElementById('depositHistoryTableBody').innerHTML = `
+                <tr><td colspan="6" class="text-center no-data">Đã có lỗi xảy ra khi tải lịch sử đặt cọc</td></tr>
+            `;
+        }
+    }
+
+    function renderDepositHistory(deposits) {
+        const tableBody = document.getElementById('depositHistoryTableBody');
+        tableBody.innerHTML = '';
+        if (deposits.length === 0) {
+            tableBody.innerHTML = `
+                <tr><td colspan="6" class="text-center no-data">Không có giao dịch nào</td></tr>
+            `;
+            return;
+        }
+        deposits.forEach(deposit => {
+            const statusClass = {
+                'SUCCESS': 'status-success',
+                'FAILED': 'status-failed',
+                'PENDING': 'status-pending',
+                'CANCELLED': 'status-cancelled'
+            }[deposit.status] || 'no-data';
+
+            const statusDisplayName = {
+                'SUCCESS': 'Thành công',
+                'FAILED': 'Thất bại',
+                'PENDING': 'Đang chờ',
+                'CANCELLED': 'Đã huỷ'
+            }[deposit.status] || 'N/A';
+
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${deposit.id || 'N/A'}</td>
+                <td>${deposit.createAt ? new Date(deposit.createAt).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}</td>
+                <td>${deposit.depositAmount ? deposit.depositAmount.toLocaleString('vi-VN') + ' VNĐ' : 'N/A'}</td>
+                <td>${deposit.note || 'Không có'}</td>
+                <td>
+                    <a href="/home/property/${deposit.propertyId}" class="table-link">Xem chi tiết</a>
+                </td>
+                <td><span class="${statusClass}">${statusDisplayName}</span></td>
+            `;
+            tableBody.appendChild(row);
+        });
+    }
+
+    function renderPagination(totalPages, current) {
+        const pagination = document.getElementById('pagination');
+        pagination.innerHTML = '';
+        if (totalPages <= 1) return;
+
+        const prevLi = document.createElement('li');
+        prevLi.className = `page-item ${current === 0 ? 'disabled' : ''}`;
+        prevLi.innerHTML = `<a class="page-link" href="#">Trước</a>`;
+        if (current !== 0) {
+            prevLi.addEventListener('click', (e) => {
+                e.preventDefault();
+                currentPage = current - 1;
+                loadDepositHistory(userId, currentPage, size);
+            });
+        }
+        pagination.appendChild(prevLi);
+
+        for (let i = 0; i < totalPages; i++) {
+            const li = document.createElement('li');
+            li.className = `page-item ${i === current ? 'active' : ''}`;
+            li.innerHTML = `<a class="page-link" href="#">${i + 1}</a>`;
+            li.addEventListener('click', (e) => {
+                e.preventDefault();
+                currentPage = i;
+                loadDepositHistory(userId, currentPage, size);
+            });
+            pagination.appendChild(li);
+        }
+
+        const nextLi = document.createElement('li');
+        nextLi.className = `page-item ${current === totalPages - 1 ? 'disabled' : ''}`;
+        nextLi.innerHTML = `<a class="page-link" href="#">Sau</a>`;
+        if (current !== totalPages - 1) {
+            nextLi.addEventListener('click', (e) => {
+                e.preventDefault();
+                currentPage = current + 1;
+                loadDepositHistory(userId, currentPage, size);
+            });
+        }
+        pagination.appendChild(nextLi);
+    }
+</script>
+</body>
+</html>

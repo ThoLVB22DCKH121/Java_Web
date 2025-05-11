@@ -1,120 +1,280 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title></title>
+    <meta name="_csrf" th:content="${_csrf.token}"/>
+    <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+    <title>Danh Sách Bất Động Sản</title>
     <link rel="stylesheet" th:href="@{/css/style.css}">
-    <link rel="stylesheet" th:href="@{/css/home.css}">
-    <link rel="stylesheet" th:href="@{/css/chat-frame.css}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Sử dụng CDN miễn phí của Font Awesome thay vì key -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .search-bar {
+            background: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .input-field {
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        .pagination-btn {
+            min-width: 100px;
+            font-weight: 500;
+        }
+        .pagination-btn:disabled {
+            background-color: #e5e7eb;
+            border-color: #d1d5db;
+            color: #6b7280;
+            cursor: not-allowed;
+        }
+        .favorite-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+    </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
 </head>
 <body>
 <!-- Header -->
-<div th:replace="fragments/header :: header"></div>
-
-<!-- Slider -->
-<div id="propertySlider" class="carousel slide" data-bs-ride="carousel">
-    <div class="carousel-inner">
-        <div class="carousel-item active">
-            <img src="https://images.pexels.com/photos/1146708/pexels-photo-1146708.jpeg" class="d-block w-100">
-            <div class="carousel-caption d-flex flex-column align-items-center justify-content-center">
-                <!-- Thanh tìm kiếm -->
-                <div class="search-box p-3">
-                    <form th:action="@{/search}" method="get" class="row g-2">
-                        <div class="col-md-3">
-                            <input type="text" class="form-control" name="price" placeholder="Nhập giá...">
-                        </div>
-                        <div class="col-md-3">
-                            <input type="text" class="form-control" name="address" placeholder="Nhập địa chỉ...">
-                        </div>
-                        <div class="col-md-3">
-                            <input type="text" class="form-control" name="area" placeholder="Nhập diện tích...">
-                        </div>
-                        <div class="col-md-3">
-                            <select class="form-select" name="type">
-                                <option value="">Chọn kiểu</option>
-                                <option value="house">Nhà</option>
-                                <option value="apartment">Căn hộ</option>
-                            </select>
-                        </div>
-                        <div class="col-md-12 text-center">
-                            <button type="submit" class="btn btn-custom">Tìm kiếm</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+<div th:replace="~{fragments/header :: header}"></div>
 
 <main class="container mt-4">
-    <!-- Tin tức mới nhất -->
-    <div class="container mt-5">
-        <h4>Tin tức mới nhất</h4>
-        <div class="row">
-            <div class="col-md-4" th:each="news : ${newsList}">
-                <div class="card">
-                    <img th:src="${news.newsDetails[0].image}" class="card-img-top" alt="News Image">
-                    <div class="card-body">
-                        <h5 class="card-title" th:text="${news.title}" ></h5>
-                        <a th:href="@{/news/{id}(id=${news.id})}" class="btn btn-primary">Xem chi tiết</a>
-                    </div>
-                </div>
+    <!-- Search Bar -->
+    <div class="search-bar">
+        <form id="searchForm" class="flex flex-wrap items-end gap-3">
+            <!-- Property Type -->
+            <div class="flex-1 min-w-[150px]">
+                <label for="type" class="block text-sm font-medium text-gray-700"><i class="fas fa-home mr-2"></i>Loại</label>
+                <select id="type" name="type" class="input-field mt-1 block w-full border border-gray-300 rounded-lg p-2 focus:outline-none">
+                    <option value="">Tất cả</option>
+                    <option th:each="type : ${propertyTypes}" th:value="${type}" th:text="${type.displayName}"></option>
+                </select>
             </div>
-        </div>
+
+            <!-- Min Area -->
+            <div class="flex-1 min-w-[120px]">
+                <label for="minArea" class="block text-sm font-medium text-gray-700"><i class="fas fa-ruler-combined mr-2"></i>Diện tích min (m²)</label>
+                <input id="minArea" name="minArea" type="number" step="0.01" class="input-field mt-1 block w-full border border-gray-300 rounded-lg p-2 focus:outline-none" placeholder="VD: 50" />
+            </div>
+
+            <!-- Max Area -->
+            <div class="flex-1 min-w-[120px]">
+                <label for="maxArea" class="block text-sm font-medium text-gray-700"><i class="fas fa-ruler-combined mr-2"></i>Diện tích max (m²)</label>
+                <input id="maxArea" name="maxArea" type="number" step="0.01" class="input-field mt-1 block w-full border border-gray-300 rounded-lg p-2 focus:outline-none" placeholder="VD: 200" />
+            </div>
+
+            <!-- Min Price -->
+            <div class="flex-1 min-w-[120px]">
+                <label for="minPrice" class="block text-sm font-medium text-gray-700"><i class="fas fa-money-bill-wave mr-2"></i>Giá min (triệu)</label>
+                <input id="minPrice" name="minPrice" type="number" step="0.01" class="input-field mt-1 block w-full border border-gray-300 rounded-lg p-2 focus:outline-none" placeholder="VD: 1000" />
+            </div>
+
+            <!-- Max Price -->
+            <div class="flex-1 min-w-[120px]">
+                <label for="maxPrice" class="block text-sm font-medium text-gray-700"><i class="fas fa-money-bill-wave mr-2"></i>Giá max (triệu)</label>
+                <input id="maxPrice" name="maxPrice" type="number" step="0.01" class="input-field mt-1 block w-full border border-gray-300 rounded-lg p-2 focus:outline-none" placeholder="VD: 5000" />
+            </div>
+
+            <!-- Address -->
+            <div class="flex-1 min-w-[200px]">
+                <label for="address" class="block text-sm font-medium text-gray-700"><i class="fas fa-map-marker-alt mr-2"></i>Địa chỉ</label>
+                <input id="address" name="address" type="text" class="input-field mt-1 block w-full border border-gray-300 rounded-lg p-2 focus:outline-none" placeholder="VD: Hà Nội" />
+            </div>
+
+            <!-- Sort -->
+            <div class="flex-1 min-w-[150px]">
+                <label for="sortBy" class="block text-sm font-medium text-gray-700"><i class="fas fa-sort-amount-down mr-2"></i>Sắp xếp</label>
+                <select id="sortBy" name="sortBy" class="input-field mt-1 block w-full border border-gray-300 rounded-lg p-2 focus:outline-none">
+                    <option value="price_asc">Giá: Thấp đến cao</option>
+                    <option value="price_desc">Giá: Cao đến thấp</option>
+                    <option value="area_asc">Diện tích: Nhỏ đến lớn</option>
+                    <option value="area_desc">Diện tích: Lớn đến nhỏ</option>
+                </select>
+            </div>
+
+            <!-- Submit Button -->
+            <div class="min-w-[80px]">
+                <button type="submit" class="btn text-black font-semibold btn-outline-warning py-2 px-3 rounded-lg focus:outline-none h-[42px]">
+                    <i class="fas fa-search mr-2"></i>Tìm kiếm
+                </button>
+            </div>
+        </form>
     </div>
 
-    <!-- Bất động sản nổi bật -->
-    <div class="container mt-5">
-        <h4>Bất động sản nổi bật</h4>
-        <div class="row">
-            <div class="col-md-4" th:each="property : ${propertyList}">
-                <div class="card">
-                    <img th:src="${property.images[0].image}" class="card-img-top" alt="Property Image">
-                    <div class="card-body">
-                        <h5 class="card-title" th:text="${property.name}"></h5>
-                        <p class="card-text"><strong>Giá:</strong> <span th:text="${property.price}"></span></p>
-                        <a th:href="@{/properties/{id}(id=${property.id})}" class="btn btn-primary">Xem chi tiết</a>
-                    </div>
-                </div>
-            </div>
+    <!-- Danh sách bất động sản -->
+    <div class="mt-5">
+        <div id="property-list" class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4">
+            <!-- Property cards sẽ được tạo ở đây bằng JS -->
         </div>
-    </div>
 
-    <!-- Dự án nổi bật -->
-    <div class="container mt-5 mb-5">
-        <h4>Dự án nổi bật</h4>
-        <div class="row">
-            <div class="col-md-4" th:each="project : ${projectList}">
-                <div class="card">
-                    <img th:src="${project.images[0].image}" class="card-img-top" alt="Project Image" >
-                    <div class="card-body">
-                        <h5 class="card-title" th:text="${project.name}"></h5>
-                        <a th:href="@{/projects/{id}(id=${project.id})}" class="btn btn-primary">Xem chi tiết</a>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <!-- Phân trang -->
+        <div id="pagination" class="mt-4 d-flex justify-content-center gap-3"></div>
     </div>
 </main>
 
-<div th:replace="fragments/chat-frame::chat-frame"></div>
-
 <!-- Footer -->
-<div th:replace="fragments/footer :: footer"></div>
+<div th:replace="~{fragments/footer :: footer}"></div>
 
+<!-- Truyền favouriteStatus từ backend sang JavaScript -->
 <script th:inline="javascript">
-    var username = /*[[${username}]]*/ "guest";
-    var socket = new SockJS('http://localhost:8081/ws');
-    var stompClient = Stomp.over(socket);
+    const favouriteStatus = /*[[${favouriteStatus}]]*/ {};
+    const userId = /*[[${userId}]]*/ '';
 </script>
-<script src="/js/chat-frame.js"></script>
+
 <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // Hàm load bất động sản từ API
+    function loadProperties(page = 0) {
+        const form = document.getElementById('searchForm');
+        const formData = new FormData(form);
+
+        const searchParams = new URLSearchParams();
+        searchParams.append('page', page);
+        searchParams.append('size', 8);
+
+        const sortValue = formData.get('sortBy');
+        let sortBy = 'price';
+        let sortDir = 'asc';
+        if (sortValue) {
+            const [field, direction] = sortValue.split('_');
+            sortBy = field;
+            sortDir = direction;
+        }
+        searchParams.append('sortBy', sortBy);
+        searchParams.append('sortDir', sortDir);
+
+        for (const [key, value] of formData) {
+            if (key !== 'sortBy' && value) {
+                searchParams.append(key, value);
+            }
+        }
+
+        fetch(`/search?${searchParams.toString()}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Lỗi khi tải dữ liệu bất động sản');
+                }
+                return response.json();
+            })
+            .then(data => {
+                const propertyList = document.getElementById('property-list');
+                propertyList.innerHTML = ''; // Xóa danh sách cũ
+
+                data.content.forEach(property => {
+                    const isFavourite = favouriteStatus[property.id] || false;
+                    const heartClass = isFavourite ? 'fas fa-heart' : 'far fa-heart';
+                    const isLoggedIn = userId !== ''; // Kiểm tra trạng thái đăng nhập
+
+                    const cardHtml = `
+                    <div class="col">
+                        <div class="card property-card h-100 position-relative">
+                            <a href="home/property/${property.id}" style="text-decoration: none; color: inherit;">
+                                <img src="${property.imageList[0] || '/images/default.jpg'}" class="card-img-top property-image" alt="Property Image">
+                                <div class="card-body">
+                                    <h5 class="card-title property-title">${property.name}</h5>
+                                    <div class="price-area-container">
+                                        <p class="card-text property-price mb-0">Giá: ${property.price} Triệu/m²</p>
+                                        <p class="card-text property-area mb-0">Diện tích: ${property.area} m²</p>
+                                    </div>
+                                    <p class="card-text property-location mt-2">
+                                        <i class="fas fa-map-marker-alt me-1"></i> ${property.address}
+                                    </p>
+                                    <p class="card-text property-status">${property.status === 'AVAILABLE' ? 'Còn bán' : 'Đã bán'}</p>
+                                </div>
+                            </a>
+                            <div class="favorite">
+                                <button type="button" class="favorite-btn" onclick="toggleFavorite(this, ${property.id})" style="background: transparent; border: none;" ${isLoggedIn ? '' : 'disabled'}>
+                                    <i class="${heartClass} heart-icon" style="color: red; font-size: 24px;"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    `;
+                    propertyList.insertAdjacentHTML('beforeend', cardHtml);
+                });
+
+                renderPagination(data.totalPages, data.number);
+            })
+            .catch(error => {
+                console.error('Lỗi fetch property:', error);
+                document.getElementById('property-list').innerHTML = '<p>Không thể tải danh sách bất động sản. Vui lòng thử lại sau.</p>';
+            });
+    }
+
+    document.getElementById('searchForm').addEventListener('submit', function(event) {
+        event.preventDefault();
+        loadProperties(0);
+    });
+
+    function toggleFavorite(button, propertyId) {
+        if (!userId) {
+            alert('Vui lòng đăng nhập để sử dụng tính năng yêu thích.');
+            return;
+        }
+
+        const icon = button.querySelector('i');
+        const isFavourite = icon.classList.contains('fas'); // Kiểm tra trạng thái hiện tại
+
+        const csrfToken = document.querySelector('meta[name="_csrf"]').getAttribute('content');
+        const csrfHeader = document.querySelector('meta[name="_csrf_header"]').getAttribute('content');
+
+        const method = isFavourite ? 'DELETE' : 'POST';
+
+        fetch(`/favourites/${propertyId}/${userId}`, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+                [csrfHeader]: csrfToken
+            },
+        })
+            .then(response => {
+                if (response.ok) {
+                    // Cập nhật giao diện
+                    icon.classList.toggle('fas', !isFavourite);
+                    icon.classList.toggle('far', isFavourite);
+                    // Cập nhật favouriteStatus
+                    favouriteStatus[propertyId] = !isFavourite;
+                } else {
+                    console.error('Không thể cập nhật yêu thích');
+                    alert('Không thể cập nhật trạng thái yêu thích. Vui lòng thử lại.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Đã có lỗi xảy ra. Vui lòng thử lại.');
+            });
+    }
+
+    function renderPagination(totalPages, currentPage) {
+        const pagination = document.getElementById('pagination');
+        if (!pagination) return;
+
+        pagination.innerHTML = '';
+
+        const prevButton = document.createElement('button');
+        prevButton.innerText = 'Trước';
+        prevButton.className = 'btn btn-outline-primary pagination-btn';
+        prevButton.disabled = currentPage === 0;
+        prevButton.onclick = () => loadProperties(currentPage - 1);
+        pagination.appendChild(prevButton);
+
+        const nextButton = document.createElement('button');
+        nextButton.innerText = 'Sau';
+        nextButton.className = 'btn btn-outline-primary pagination-btn';
+        nextButton.disabled = currentPage === totalPages - 1;
+        nextButton.onclick = () => loadProperties(currentPage + 1);
+        pagination.appendChild(nextButton);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadProperties();
+    });
+</script>
 </body>
 </html>

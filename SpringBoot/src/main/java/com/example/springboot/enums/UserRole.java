@@ -2,7 +2,6 @@ package com.example.springboot.enums;
 
 public enum UserRole {
     ADMIN("Quản trị viên"),
-    MANAGER("Quản lý"),
     EMPLOYEE("Nhân viên"),
     CUSTOMER("Người dùng");
 
